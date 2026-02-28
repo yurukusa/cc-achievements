@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cc-achievements — Unlock Your Claude Code Milestones</title>
+<meta name="description" content="Auto-detect your Claude Code milestones. Select your ~/.claude folder and see which achievements you've unlocked. Zero installs, no data leaves your machine.">
+<meta property="og:title" content="cc-achievements — Your Claude Code Milestones">
+<meta property="og:description" content="How many milestones have you hit? Select your ~/.claude folder to find out. 20 achievements, all auto-detected.">
+<meta property="og:url" content="https://yurukusa.github.io/cc-achievements/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@yurukusa_dev">
+<meta name="twitter:title" content="cc-achievements — Your Claude Code Milestones">
+<meta name="twitter:description" content="Auto-detect your Claude Code milestones from your ~/.claude folder. 20 achievements. Zero installs.">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d0d14;
+  --surface: #14141e;
+  --surface-2: #1c1c2a;
+  --gold: #f59e0b;
+  --gold-dim: rgba(245,158,11,0.15);
+  --gold-glow: rgba(245,158,11,0.3);
+  --green: #10b981;
+  --purple: #8b5cf6;
+  --blue: #3b82f6;
+  --text: #e8e8f0;
+  --text-dim: #7878a0;
+  --text-faint: #44445a;
+  --border: #252535;
+  --border-locked: #1e1e2e;
+}
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+
+/* Header */
+.header { text-align: center; padding: 2.5rem 1rem 1.5rem; }
+.header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+.header h1 span { color: var(--gold); }
+.header p { color: var(--text-dim); margin-top: 0.4rem; font-size: 0.95rem; }
+
+/* Pick box */
+.pick-box { max-width: 480px; margin: 0 auto 2rem; text-align: center; padding: 0 1rem; }
+.pick-label { color: var(--text-dim); margin-bottom: 1.2rem; font-size: 0.95rem; line-height: 1.5; }
+.pick-label code { color: var(--text); background: var(--surface-2); padding: 0.1em 0.4em; border-radius: 4px; font-size: 0.9em; }
+.btn-pick {
+  display: inline-block; background: var(--gold); color: #000; font-weight: 700;
+  padding: 0.8rem 2rem; border-radius: 8px; cursor: pointer; font-size: 1rem;
+  transition: opacity 0.15s; user-select: none;
+}
+.btn-pick:hover { opacity: 0.85; }
+.status { margin-top: 1rem; font-size: 0.9rem; color: var(--text-dim); min-height: 1.4em; }
+.status.ok { color: var(--green); }
+.status.err { color: #f87171; }
+
+/* Results header */
+.results-header { max-width: 860px; margin: 0 auto 1.5rem; padding: 0 1.2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; }
+.unlocked-count { font-size: 1.1rem; }
+.unlocked-count strong { color: var(--gold); font-size: 1.4rem; }
+.btn-share {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+  padding: 0.5rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+  transition: border-color 0.15s;
+}
+.btn-share:hover { border-color: var(--gold); color: var(--gold); }
+.btn-again { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.btn-again:hover { color: var(--text); border-color: var(--text-dim); }
+
+/* Category section */
+.category { max-width: 860px; margin: 0 auto 2rem; padding: 0 1.2rem; }
+.cat-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 0.8rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+
+/* Achievement grid */
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.7rem; }
+
+/* Achievement card */
+.ach-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.9rem 1rem; display: flex; align-items: center; gap: 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ach-card.unlocked { border-color: var(--gold-glow); background: var(--gold-dim); box-shadow: 0 0 20px var(--gold-glow); }
+.ach-card.locked { opacity: 0.45; }
+
+.ach-icon { font-size: 1.6rem; line-height: 1; flex-shrink: 0; width: 2.2rem; text-align: center; }
+.ach-icon.locked-icon { filter: grayscale(1); opacity: 0.4; }
+
+.ach-info { min-width: 0; }
+.ach-name { font-size: 0.9rem; font-weight: 700; }
+.ach-card.unlocked .ach-name { color: var(--gold); }
+.ach-desc { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.15rem; line-height: 1.35; }
+.ach-card.locked .ach-desc { color: var(--text-faint); }
+
+/* Share popup */
+.share-popup {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 1rem;
+}
+.share-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; max-width: 480px; width: 100%; }
+.share-box h3 { margin-bottom: 1rem; font-size: 1rem; color: var(--gold); }
+.share-text { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; font-size: 0.85rem; color: var(--text-dim); white-space: pre-wrap; word-break: break-word; min-height: 80px; }
+.share-actions { display: flex; gap: 0.6rem; margin-top: 0.9rem; }
+.btn-copy-text { flex: 1; background: var(--gold); color: #000; font-weight: 700; padding: 0.6rem; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; }
+.btn-copy-text:hover { opacity: 0.85; }
+.btn-close { background: var(--surface-2); color: var(--text-dim); padding: 0.6rem 1rem; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-size: 0.9rem; }
+.btn-close:hover { color: var(--text); }
+
+/* Footer */
+.footer { text-align: center; padding: 2rem 1rem 3rem; color: var(--text-faint); font-size: 0.8rem; }
+.footer a { color: var(--text-dim); text-decoration: none; }
+.footer a:hover { color: var(--text); }
+
+/* Hidden */
+#results-view { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>cc-<span>achievements</span></h1>
+  <p>Auto-detect your Claude Code milestones — select your folder, see what you've unlocked.</p>
+</div>
+
+<div class="pick-box" id="pick-box">
+  <p class="pick-label">Select your <code>~/.claude</code> folder to unlock achievements.<br>Everything runs locally. No data leaves your machine.</p>
+  <label class="btn-pick">
+    Browse My Claude Folder
+    <input type="file" id="dir-input" webkitdirectory style="display:none" onchange="processDir(this.files)">
+  </label>
+  <div class="status" id="status"></div>
+</div>
+
+<div id="results-view">
+  <div class="results-header">
+    <div class="unlocked-count"><strong id="unlock-n">0</strong> / 20 achievements unlocked</div>
+    <div style="display:flex;gap:0.6rem;">
+      <button class="btn-share" onclick="showShare()">Share Results</button>
+      <button class="btn-again" onclick="reset()">Try Another Folder</button>
+    </div>
+  </div>
+  <div id="ach-categories"></div>
+</div>
+
+<div class="share-popup" id="share-popup" style="display:none" onclick="if(event.target===this)closeShare()">
+  <div class="share-box">
+    <h3>🏆 Share Your Achievements</h3>
+    <div class="share-text" id="share-text"></div>
+    <div class="share-actions">
+      <button class="btn-copy-text" onclick="copyShareText()">Copy to Clipboard</button>
+      <button class="btn-close" onclick="closeShare()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Part of <a href="https://yurukusa.github.io/cc-toolkit/">cc-toolkit</a> — 29 free tools for Claude Code users.
+  <a href="https://github.com/yurukusa/cc-achievements">GitHub</a>
+</div>
+
+<script>
+// ── Achievement definitions ────────────────────────────────────
+
+const ACHIEVEMENTS = [
+  // Volume
+  { id: 'first_steps',    cat: 'Volume',       icon: '🌱', name: 'First Steps',     desc: 'Any Claude Code sessions detected.',                   check: d => d.totalHours > 0 },
+  { id: 'double_digits',  cat: 'Volume',       icon: '⏱',  name: 'Double Digits',   desc: '10+ total hours of sessions.',                         check: d => d.totalHours >= 10 },
+  { id: 'fifty_hours',    cat: 'Volume',       icon: '📦', name: 'Fifty Hours',      desc: '50+ total hours of sessions.',                         check: d => d.totalHours >= 50 },
+  { id: 'century',        cat: 'Volume',       icon: '💎', name: 'Century',          desc: '100+ total hours. You\'re in deep.',                   check: d => d.totalHours >= 100 },
+  { id: 'half_grand',     cat: 'Volume',       icon: '🔥', name: 'Half Grand',       desc: '500+ total hours. Your hip flexors know.',             check: d => d.totalHours >= 500 },
+
+  // Consistency
+  { id: 'hat_trick',      cat: 'Consistency',  icon: '📅', name: 'Hat Trick',        desc: '3+ day active streak.',                                check: d => d.maxStreak >= 3 },
+  { id: 'week_strong',    cat: 'Consistency',  icon: '🗓', name: 'Week Strong',       desc: '7+ day active streak.',                                check: d => d.maxStreak >= 7 },
+  { id: 'month_strong',   cat: 'Consistency',  icon: '🏅', name: 'Month Strong',     desc: '30+ day active streak.',                               check: d => d.maxStreak >= 30 },
+  { id: 'veteran',        cat: 'Consistency',  icon: '📆', name: 'Veteran',          desc: 'Active on 30+ different calendar days.',               check: d => d.activeDayCount >= 30 },
+
+  // Ghost Days
+  { id: 'first_ghost',    cat: 'Ghost Days',   icon: '👻', name: 'First Ghost',      desc: 'AI ran solo for a full day while you were away.',      check: d => d.ghostDays >= 1 },
+  { id: 'ghost_col',      cat: 'Ghost Days',   icon: '🌙', name: 'Ghost Collector',  desc: '5+ ghost days total.',                                 check: d => d.ghostDays >= 5 },
+  { id: 'phantom',        cat: 'Ghost Days',   icon: '🌌', name: 'Phantom',          desc: '15+ ghost days. The AI runs itself.',                  check: d => d.ghostDays >= 15 },
+
+  // Session Patterns
+  { id: 'night_owl',      cat: 'Patterns',     icon: '🦉', name: 'Night Owl',        desc: '5+ sessions started between 11pm and 3am.',            check: d => d.nightOwl >= 5 },
+  { id: 'marathon',       cat: 'Patterns',     icon: '💪', name: 'Marathon',         desc: 'A single session lasting 4+ hours.',                   check: d => d.maxSessionHours >= 4 },
+  { id: 'ultra',          cat: 'Patterns',     icon: '🏋', name: 'Ultramarathon',    desc: 'A single session lasting 6+ hours. Stretch.',          check: d => d.maxSessionHours >= 6 },
+  { id: 'power_day',      cat: 'Patterns',     icon: '⚡', name: 'Power Day',        desc: '5+ sessions in a single day.',                         check: d => d.maxSessionsPerDay >= 5 },
+
+  // Projects
+  { id: 'juggler',        cat: 'Projects',     icon: '🗂', name: 'Juggler',          desc: '3+ different projects worked on.',                     check: d => d.projectCount >= 3 },
+  { id: 'explorer',       cat: 'Projects',     icon: '🌍', name: 'Explorer',         desc: '7+ different projects worked on.',                     check: d => d.projectCount >= 7 },
+
+  // Autonomy
+  { id: 'ai_partners',    cat: 'Autonomy',     icon: '🤖', name: 'AI Partners',      desc: 'AI session hours ≥ your session hours.',               check: d => d.mainHours > 0 && d.subHours / d.mainHours >= 1.0 },
+  { id: 'ai_lead',        cat: 'Autonomy',     icon: '🚀', name: 'AI Forward',       desc: 'AI session hours are 2× your session hours.',          check: d => d.mainHours > 0 && d.subHours / d.mainHours >= 2.0 },
+];
+
+const CATEGORIES = ['Volume', 'Consistency', 'Ghost Days', 'Patterns', 'Projects', 'Autonomy'];
+
+// ── File reading utilities (from cc-score) ─────────────────────
+
+function _parseTs(line) {
+  if (!line) return null;
+  try {
+    const obj = JSON.parse(line);
+    const ts = obj.timestamp;
+    if (!ts) return null;
+    const n = typeof ts === 'string' ? Date.parse(ts) : ts;
+    return isFinite(n) ? n : null;
+  } catch { return null; }
+}
+
+async function _readFirstLast(file) {
+  const readSize = 1024;
+  const firstChunk = await file.slice(0, 2048).text();
+  const firstLine  = firstChunk.split('\n').find(l => l.trim().length > 0) || '';
+  const lastChunk  = await file.slice(Math.max(0, file.size - readSize)).text();
+  const lines      = lastChunk.split('\n').filter(l => l.trim().length > 0);
+  const lastLine   = lines[lines.length - 1] || '';
+  return { firstLine, lastLine };
+}
+
+function tsToDate(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ── Streak computation ──────────────────────────────────────────
+
+function computeMaxStreak(byDate) {
+  const dates = Object.keys(byDate).sort();
+  if (dates.length === 0) return 0;
+  let max = 1, cur = 1;
+  for (let i = 1; i < dates.length; i++) {
+    const prev = new Date(dates[i-1] + 'T00:00:00');
+    const curr = new Date(dates[i]   + 'T00:00:00');
+    const diff = (curr - prev) / 864e5;
+    if (diff === 1) { cur++; max = Math.max(max, cur); }
+    else cur = 1;
+  }
+  return max;
+}
+
+// ── Main processing ─────────────────────────────────────────────
+
+let _shareText = '';
+
+async function processDir(fileList) {
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = 'Reading sessions…';
+  statusEl.className = 'status';
+
+  const byDate   = {}; // {date: {main, sub, mainCount, subCount}}
+  const projects = new Set();
+  let mainHours = 0, subHours = 0;
+  let maxSessionHours = 0;
+  let nightOwl = 0;
+  let fileCount = 0;
+
+  for (const file of Array.from(fileList)) {
+    const path = file.webkitRelativePath;
+    const mainMatch = path.match(/projects\/([^/]+)\/[^/]+\.jsonl$/);
+    const subMatch  = path.match(/projects\/([^/]+)\/subagents\/[^/]+\.jsonl$/);
+    if ((!mainMatch && !subMatch) || file.size < 50) continue;
+    const isMain = !!mainMatch && !subMatch;
+    const proj = (mainMatch || subMatch)[1];
+
+    try {
+      const { firstLine, lastLine } = await _readFirstLast(file);
+      const startTs = _parseTs(firstLine);
+      const endTs   = _parseTs(lastLine);
+      if (!startTs || !endTs) continue;
+      const ms = endTs - startTs;
+      if (ms < 0 || ms > 7 * 864e5) continue;
+      const hours = ms / 36e5;
+      const date  = tsToDate(startTs);
+
+      if (!byDate[date]) byDate[date] = { main: 0, sub: 0, mainCount: 0, subCount: 0 };
+      if (isMain) {
+        byDate[date].main += hours;
+        byDate[date].mainCount += 1;
+        mainHours += hours;
+        projects.add(proj);
+      } else {
+        byDate[date].sub += hours;
+        byDate[date].subCount += 1;
+        subHours += hours;
+      }
+
+      maxSessionHours = Math.max(maxSessionHours, hours);
+
+      // Night owl: session started between 23:00-03:00 local time
+      if (isMain) {
+        const h = new Date(startTs).getHours();
+        if (h >= 23 || h < 3) nightOwl++;
+      }
+
+      fileCount++;
+    } catch {}
+  }
+
+  if (fileCount === 0) {
+    statusEl.textContent = '⚠ No session data found — make sure you selected the .claude folder';
+    statusEl.className = 'status err';
+    return;
+  }
+
+  statusEl.textContent = `✓ ${fileCount} sessions read`;
+  statusEl.className = 'status ok';
+
+  // Compute aggregates
+  const activeDates = Object.keys(byDate).filter(d => byDate[d].main > 0 || byDate[d].sub > 0);
+  const ghostDays   = activeDates.filter(d => byDate[d].main === 0 && byDate[d].sub > 0).length;
+  const totalHours  = mainHours + subHours;
+  const maxStreak   = computeMaxStreak(
+    Object.fromEntries(activeDates.map(d => [d, 1]))
+  );
+  const maxSessionsPerDay = Math.max(...activeDates.map(d => byDate[d].mainCount + byDate[d].subCount), 0);
+
+  const data = {
+    totalHours, mainHours, subHours,
+    activeDayCount: activeDates.length,
+    ghostDays, maxStreak,
+    projectCount: projects.size,
+    nightOwl, maxSessionHours, maxSessionsPerDay,
+  };
+
+  renderResults(data);
+}
+
+// ── Render ──────────────────────────────────────────────────────
+
+function renderResults(data) {
+  const unlocked = ACHIEVEMENTS.filter(a => a.check(data));
+  document.getElementById('unlock-n').textContent = unlocked.length;
+
+  const container = document.getElementById('ach-categories');
+  container.innerHTML = '';
+
+  for (const cat of CATEGORIES) {
+    const achs = ACHIEVEMENTS.filter(a => a.cat === cat);
+    const catUnlocked = achs.filter(a => a.check(data));
+    const section = document.createElement('div');
+    section.className = 'category';
+    section.innerHTML = `<div class="cat-title">${cat} — ${catUnlocked.length}/${achs.length}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'ach-grid';
+    for (const ach of achs) {
+      const isUnlocked = ach.check(data);
+      const card = document.createElement('div');
+      card.className = `ach-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+      card.innerHTML = `
+        <div class="ach-icon${isUnlocked ? '' : ' locked-icon'}">${ach.icon}</div>
+        <div class="ach-info">
+          <div class="ach-name">${ach.name}</div>
+          <div class="ach-desc">${ach.desc}</div>
+        </div>`;
+      grid.appendChild(card);
+    }
+    section.appendChild(grid);
+    container.appendChild(section);
+  }
+
+  // Build share text
+  const unlockedNames = unlocked.map(a => `${a.icon} ${a.name}`);
+  _shareText = `cc-achievements: ${unlocked.length}/20 unlocked\n\n` +
+    (unlockedNames.length > 0
+      ? unlockedNames.join('\n')
+      : '(none yet — get coding!)') +
+    `\n\nCheck yours: https://yurukusa.github.io/cc-achievements/\n#claudecode`;
+
+  document.getElementById('pick-box').style.display = 'none';
+  document.getElementById('results-view').style.display = '';
+}
+
+// ── Share ────────────────────────────────────────────────────────
+
+function showShare() {
+  document.getElementById('share-text').textContent = _shareText;
+  document.getElementById('share-popup').style.display = 'flex';
+}
+
+function closeShare() {
+  document.getElementById('share-popup').style.display = 'none';
+}
+
+function copyShareText() {
+  navigator.clipboard.writeText(_shareText).then(() => {
+    const btn = document.querySelector('.btn-copy-text');
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+}
+
+function reset() {
+  document.getElementById('pick-box').style.display = '';
+  document.getElementById('results-view').style.display = 'none';
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status';
+  document.getElementById('dir-input').value = '';
+}
+</script>
+</body>
+</html>

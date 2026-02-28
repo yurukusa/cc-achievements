@@ -1,0 +1,13 @@
+{
+  "name": "cc-achievements",
+  "version": "1.0.0",
+  "description": "Auto-detect your Claude Code milestones. 20 achievements from your ~/.claude folder. Browser only, zero installs.",
+  "keywords": ["claude-code", "claude", "ai", "productivity", "achievements", "milestones", "analytics"],
+  "homepage": "https://yurukusa.github.io/cc-achievements/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yurukusa/cc-achievements"
+  },
+  "author": "yurukusa",
+  "license": "MIT"
+}
