@@ -359,13 +359,18 @@ function renderResults(data) {
     container.appendChild(section);
   }
 
-  // Build share text
+  // Build share text + URL
+  const unlockedIds = unlocked.map(a => a.id);
+  const shareUrl = `https://yurukusa.github.io/cc-achievements/#unlocked=${unlockedIds.join(',')}`;
   const unlockedNames = unlocked.map(a => `${a.icon} ${a.name}`);
   _shareText = `cc-achievements: ${unlocked.length}/20 unlocked\n\n` +
     (unlockedNames.length > 0
       ? unlockedNames.join('\n')
       : '(none yet — get coding!)') +
-    `\n\nCheck yours: https://yurukusa.github.io/cc-achievements/\n#claudecode`;
+    `\n\n${shareUrl}\n#claudecode`;
+
+  // Update browser URL hash (no page reload)
+  history.replaceState(null, '', `#unlocked=${unlockedIds.join(',')}`);
 
   document.getElementById('pick-box').style.display = 'none';
   document.getElementById('results-view').style.display = '';
@@ -392,12 +397,66 @@ function copyShareText() {
 }
 
 function reset() {
+  history.replaceState(null, '', location.pathname);
   document.getElementById('pick-box').style.display = '';
   document.getElementById('results-view').style.display = 'none';
   document.getElementById('status').textContent = '';
   document.getElementById('status').className = 'status';
   document.getElementById('dir-input').value = '';
 }
+
+// ── Shared view (load from URL hash) ────────────────────────────
+
+function loadFromHash() {
+  const hash = location.hash;
+  if (!hash.startsWith('#unlocked=')) return;
+  const ids = hash.slice('#unlocked='.length).split(',').filter(Boolean);
+  if (ids.length === 0) return;
+
+  const idSet = new Set(ids);
+  const unlockedAchs = ACHIEVEMENTS.filter(a => idSet.has(a.id));
+
+  // Show shared banner
+  const banner = document.createElement('div');
+  banner.style.cssText = 'max-width:860px;margin:0 auto 1rem;padding:0.6rem 1.2rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:0.85rem;color:#f59e0b;text-align:center;';
+  banner.textContent = `Shared achievements view — ${unlockedAchs.length}/20 unlocked by someone else. Check your own: ↓`;
+  document.getElementById('results-view').prepend(banner);
+
+  // Render with shared IDs
+  document.getElementById('unlock-n').textContent = unlockedAchs.length;
+  const container = document.getElementById('ach-categories');
+  container.innerHTML = '';
+
+  for (const cat of CATEGORIES) {
+    const achs = ACHIEVEMENTS.filter(a => a.cat === cat);
+    const catUnlocked = achs.filter(a => idSet.has(a.id));
+    const section = document.createElement('div');
+    section.className = 'category';
+    section.innerHTML = `<div class="cat-title">${cat} — ${catUnlocked.length}/${achs.length}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'ach-grid';
+    for (const ach of achs) {
+      const isUnlocked = idSet.has(ach.id);
+      const card = document.createElement('div');
+      card.className = `ach-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+      card.innerHTML = `
+        <div class="ach-icon${isUnlocked ? '' : ' locked-icon'}">${ach.icon}</div>
+        <div class="ach-info">
+          <div class="ach-name">${ach.name}</div>
+          <div class="ach-desc">${ach.desc}</div>
+        </div>`;
+      grid.appendChild(card);
+    }
+    section.appendChild(grid);
+    container.appendChild(section);
+  }
+
+  document.getElementById('pick-box').style.display = 'none';
+  document.getElementById('results-view').style.display = '';
+}
+
+// Run on page load
+loadFromHash();
 </script>
 </body>
 </html>
