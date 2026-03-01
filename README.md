@@ -44,4 +44,4 @@ Everything runs in your browser. No data is sent anywhere. Zero dependencies.
 
 ## Part of cc-toolkit
 
-[cc-toolkit](https://yurukusa.github.io/cc-toolkit/) — 30 free tools for Claude Code users.
+[cc-toolkit](https://yurukusa.github.io/cc-toolkit/) — 32 free tools for Claude Code users.
